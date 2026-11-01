@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>Audiobooks</title>
+
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#121016" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Audiobooks" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============================================================ Library -->
+<header class="app-header">
+  <button id="settings-btn" class="icon-btn" aria-label="Settings">⚙️</button>
+  <h1>Library</h1>
+  <div class="header-actions">
+    <button id="share-app-btn" class="icon-btn" aria-label="Share app">📤</button>
+    <button id="add-btn" class="icon-btn add-btn" aria-label="Add audiobooks">＋</button>
+  </div>
+</header>
+
+<main id="library" class="library">
+  <div id="library-tools" class="library-tools" hidden>
+    <input id="search" type="search" placeholder="Search title or author" autocomplete="off" />
+    <select id="sort" aria-label="Sort by">
+      <option value="recent">Recent</option>
+      <option value="title">Title</option>
+      <option value="author">Author</option>
+      <option value="added">Added</option>
+    </select>
+  </div>
+
+  <ul id="book-list" class="book-list"></ul>
+
+  <section id="empty-state" class="empty-state" hidden>
+    <div class="empty-icon">🎧</div>
+    <h2>No audiobooks yet</h2>
+    <p>Add audio files from the Files app — MP3, M4A, M4B, AAC or WAV. Pick several files at once to add them as one book.</p>
+    <button id="empty-add-btn" class="primary-btn">Add Audiobooks</button>
+  </section>
+
+  <p id="storage-note" class="storage-note"></p>
+</main>
+
+<input id="file-input" type="file" accept="audio/*,.m4b,.m4a,.mp3,.aac,.wav,.flac,.ogg,.opus" multiple hidden />
+
+<!-- ============================================================ Mini player -->
+<div id="mini-player" class="mini-player" hidden>
+  <div class="mini-progress"><div id="mini-progress-fill"></div></div>
+  <div class="mini-row">
+    <button id="mini-open" class="mini-open" aria-label="Open player">
+      <img id="mini-cover" class="cover" alt="" />
+      <span class="mini-text">
+        <span id="mini-title" class="mini-title"></span>
+        <span id="mini-sub" class="mini-sub"></span>
+      </span>
+    </button>
+    <button id="mini-play" class="icon-btn mini-play" aria-label="Play">▶</button>
+    <button id="mini-fwd" class="icon-btn mini-fwd" aria-label="Skip forward"></button>
+  </div>
+</div>
+
+<!-- ============================================================ Player -->
+<section id="player" class="player" aria-hidden="true">
+  <div class="player-top">
+    <button id="player-close" class="icon-btn" aria-label="Close player">⌄</button>
+    <span class="player-top-title">Now Playing</span>
+    <button id="player-more" class="icon-btn" aria-label="More">⋯</button>
+  </div>
+
+  <div class="player-body">
+    <div class="player-cover-wrap"><img id="player-cover" class="cover big-cover" alt="" /></div>
+
+    <div class="player-meta">
+      <h2 id="player-title"></h2>
+      <p id="player-author"></p>
+      <button id="chapter-btn" class="chapter-btn" hidden></button>
+    </div>
+
+    <div class="scrubber">
+      <input id="scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Position" />
+      <div class="scrub-times">
+        <span id="time-elapsed">0:00</span>
+        <span id="time-remaining">-0:00</span>
+      </div>
+      <div id="book-left" class="book-left"></div>
+    </div>
+
+    <div class="transport">
+      <button id="prev-chapter" class="icon-btn t-small" aria-label="Previous chapter">⏮</button>
+      <button id="skip-back" class="icon-btn t-skip" aria-label="Skip back"><span class="skip-arrow">↺</span><span id="skip-back-label" class="skip-num">15</span></button>
+      <button id="play-btn" class="play-btn" aria-label="Play">▶</button>
+      <button id="skip-fwd" class="icon-btn t-skip" aria-label="Skip forward"><span class="skip-arrow">↻</span><span id="skip-fwd-label" class="skip-num">30</span></button>
+      <button id="next-chapter" class="icon-btn t-small" aria-label="Next chapter">⏭</button>
+    </div>
+
+    <div class="player-bar">
+      <button id="speed-btn" class="bar-btn"><span class="bar-icon">⏱</span><span id="speed-label">1×</span></button>
+      <button id="sleep-btn" class="bar-btn"><span class="bar-icon">☾</span><span id="sleep-label">Sleep</span></button>
+      <button id="bookmark-btn" class="bar-btn"><span class="bar-icon">🔖</span><span>Bookmark</span></button>
+      <button id="list-btn" class="bar-btn"><span class="bar-icon">☰</span><span id="list-label">Chapters</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ Sheets -->
+<div id="backdrop" class="backdrop" hidden></div>
+
+<section id="sleep-sheet" class="sheet" hidden aria-label="Sleep timer">
+  <div class="sheet-head"><h3>Sleep Timer</h3><button class="sheet-done">Done</button></div>
+  <div class="sheet-body">
+    <div id="sleep-active" class="sleep-active" hidden>
+      <div id="sleep-countdown" class="sleep-countdown">15:00</div>
+      <div id="sleep-active-sub" class="sleep-active-sub">remaining</div>
+      <div id="sleep-shake-hint" class="shake-hint"></div>
+      <div id="sleep-paused-note" class="note" hidden>Paused — the timer continues when playback does.</div>
+      <div class="sleep-actions">
+        <button id="sleep-extend" class="secondary-btn"></button>
+        <button id="sleep-bedside" class="secondary-btn">🌙 Bedside Screen</button>
+        <button id="sleep-off" class="danger-btn">Turn Off</button>
+      </div>
+    </div>
+
+    <h4 class="sheet-label">Stop playing after</h4>
+    <div id="sleep-presets" class="preset-grid"></div>
+    <button id="sleep-chapter" class="row-btn">End of chapter</button>
+
+    <h4 class="sheet-label">Custom</h4>
+    <div class="stepper-row">
+      <button id="custom-minus" class="stepper-btn" aria-label="Less">−</button>
+      <span id="custom-value" class="stepper-value">20 min</span>
+      <button id="custom-plus" class="stepper-btn" aria-label="More">+</button>
+      <button id="custom-start" class="primary-btn small">Start</button>
+    </div>
+
+    <p class="sheet-footnote">
+      <strong>Shake your iPhone</strong> while the timer is running to add the timer's original length again.
+      iPhone only passes shakes to web apps while the screen is on, so the timer keeps the screen awake on a dim
+      bedside screen (you can turn this off in Settings). The countdown pauses whenever playback is paused.
+    </p>
+  </div>
+</section>
+
+<section id="list-sheet" class="sheet tall" hidden aria-label="Chapters and bookmarks">
+  <div class="sheet-head">
+    <div id="list-tabs" class="segmented">
+      <button data-tab="chapters" class="active">Chapters</button>
+      <button data-tab="bookmarks">Bookmarks</button>
+    </div>
+    <button class="sheet-done">Done</button>
+  </div>
+  <div class="sheet-body no-pad">
+    <ul id="chapter-list" class="item-list"></ul>
+    <ul id="bookmark-list" class="item-list" hidden></ul>
+    <p id="bookmark-empty" class="note center" hidden>No bookmarks yet. Tap Bookmark in the player to save your spot.</p>
+  </div>
+</section>
+
+<section id="speed-sheet" class="sheet" hidden aria-label="Playback speed">
+  <div class="sheet-head"><h3>Playback Speed</h3><button class="sheet-done">Done</button></div>
+  <div class="sheet-body"><div id="speed-grid" class="preset-grid"></div></div>
+</section>
+
+<section id="settings-sheet" class="sheet tall" hidden aria-label="Settings">
+  <div class="sheet-head"><h3>Settings</h3><button class="sheet-done">Done</button></div>
+  <div class="sheet-body">
+    <h4 class="sheet-label">Skip buttons</h4>
+    <label class="setting-row">Skip back
+      <select id="set-skip-back"><option>5</option><option>10</option><option>15</option><option>30</option><option>45</option><option>60</option></select>
+    </label>
+    <label class="setting-row">Skip forward
+      <select id="set-skip-fwd"><option>10</option><option>15</option><option>30</option><option>45</option><option>60</option></select>
+    </label>
+
+    <h4 class="sheet-label">Playback</h4>
+    <label class="setting-row">Smart rewind<input id="set-smart-rewind" type="checkbox" class="switch" /></label>
+    <p class="setting-note">Rewinds a few seconds when you resume after a pause — longer after longer breaks.</p>
+
+    <h4 class="sheet-label">Sleep timer</h4>
+    <label class="setting-row">Shake to extend<input id="set-shake" type="checkbox" class="switch" /></label>
+    <label class="setting-row">Keep screen on for shaking<input id="set-awake" type="checkbox" class="switch" /></label>
+    <p class="setting-note">Shows a dim bedside screen while the timer runs so shakes still reach the app. Turn off to let the phone lock normally (the timer still stops playback, but shaking won't work while locked).</p>
+    <label class="setting-row">Chime when extended<input id="set-chime" type="checkbox" class="switch" /></label>
+    <label class="setting-row">Fade out at the end<input id="set-fade" type="checkbox" class="switch" /></label>
+
+    <h4 class="sheet-label">Storage</h4>
+    <p id="storage-detail" class="setting-note"></p>
+
+    <h4 class="sheet-label">About</h4>
+    <p class="setting-note">Audiobooks are stored on this iPhone only, inside the app. Deleting the app from your Home Screen deletes them too.</p>
+  </div>
+</section>
+
+<section id="action-sheet" class="sheet" hidden aria-label="Book actions">
+  <div class="sheet-head"><h3 id="action-title"></h3><button class="sheet-done">Cancel</button></div>
+  <div id="action-body" class="sheet-body action-body"></div>
+</section>
+
+<!-- ============================================================ Overlays -->
+<div id="import-overlay" class="import-overlay" hidden>
+  <div class="import-card">
+    <div class="spinner"></div>
+    <p id="import-status">Adding…</p>
+    <p class="note">Keep the app open until this finishes.</p>
+  </div>
+</div>
+
+<div id="bedside" class="bedside" hidden>
+  <div class="bedside-inner">
+    <div id="bedside-time" class="bedside-time">15:00</div>
+    <div id="bedside-hint" class="bedside-hint">Shake to add 15 min</div>
+    <div id="bedside-flash" class="bedside-flash"></div>
+  </div>
+  <div class="bedside-foot">Tap to close · timer keeps running</div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<audio id="audio" preload="auto"></audio>
+<label id="haptic" class="haptic" aria-hidden="true"><input type="checkbox" switch /></label>
+
+<script src="metadata.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
