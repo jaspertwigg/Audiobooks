@@ -1,4 +1,4 @@
-const CACHE = "audiobooks-v3";
+const CACHE = "audiobooks-v4";
 const ASSETS = [
   "./",
   "./index.html",

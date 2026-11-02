@@ -13,7 +13,7 @@ uploaded anywhere.
 **Getting around**
 - The app opens on a menu with: **Continue listening** (or **Now playing**,
   with the book and chapter), **Add a book**, **Audiobook library**,
-  **Sleep timer**, **Share the app** and **Settings**.
+  **Share the app** and **Settings**. The sleep timer is in the player.
 - **‹ Menu** at the top of the library goes back to it. The mini player at the
   bottom opens the full player from anywhere.
 

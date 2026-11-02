@@ -1155,21 +1155,15 @@
     return books.slice().sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).find((b) => b.lastPlayed) || null;
   }
 
-  function homeOption(icon, title, sub, onClick, subId) {
+  function homeOption(icon, title, sub, onClick) {
     const b = document.createElement("button");
     b.className = "option";
     b.innerHTML = `<span class="option-icon"></span><span class="option-text"><span class="option-title"></span><span class="option-sub"></span></span><span class="option-chevron">›</span>`;
     b.querySelector(".option-icon").textContent = icon;
     b.querySelector(".option-title").textContent = title;
     b.querySelector(".option-sub").textContent = sub;
-    if (subId) b.querySelector(".option-sub").id = subId;
     b.addEventListener("click", onClick);
     return b;
-  }
-
-  function sleepOptionText() {
-    if (sleep.mode !== "off") return `Running · ${clock(sleep.remaining)} left`;
-    return settings.shake ? "Stop playback later · shake to extend" : "Stop playback after a set time";
   }
 
   function renderHome() {
@@ -1192,14 +1186,6 @@
     box.appendChild(homeOption("📚", "Audiobook library",
       books.length ? `${books.length} book${books.length === 1 ? "" : "s"} · search and sort` : "No books yet",
       () => showView("library")));
-    if (resume) {
-      box.appendChild(homeOption("🌙", "Sleep timer", sleepOptionText(), () => {
-        if (!current) openBook(resume, { autoplay: false });
-        openPlayer();
-        renderSleep();
-        openSheet("sleep-sheet");
-      }, "home-sleep-sub"));
-    }
     box.appendChild(homeOption("🔗", "Share the app", "Send the link to someone", shareApp));
     box.appendChild(homeOption("⚙️", "Settings", "Skip times, rewind, shake to extend", () => {
       renderSettings();
@@ -1336,8 +1322,6 @@
     $("bedside-time").textContent = t;
     $("sleep-paused-note").hidden = !active || !audio.paused;
     $("mini-sub").dataset.sleep = active ? `☾ ${t}` : "";
-    const homeSleep = $("home-sleep-sub");
-    if (homeSleep) homeSleep.textContent = sleepOptionText();
   }
 
   // ================================================================ Sheets
