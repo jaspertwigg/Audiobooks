@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Audiobooks" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
 <link rel="icon" href="icons/icon-192.png" />
-<link rel="stylesheet" href="styles.css?v=6" />
+<link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
 
@@ -30,7 +30,7 @@
 <!-- ============================================================ Library -->
 <header id="library-header" class="app-header" hidden>
   <button id="home-btn" class="icon-btn back-btn" aria-label="Back to menu">‹ Menu</button>
-  <h1>Library</h1>
+  <h1 id="library-title">Library</h1>
   <div class="header-actions">
     <button id="add-btn" class="icon-btn add-btn" aria-label="Add audiobooks">＋</button>
   </div>
@@ -38,7 +38,7 @@
 
 <main id="library" class="library" hidden>
   <div id="library-tools" class="library-tools" hidden>
-    <input id="search" type="search" placeholder="Search title or author" autocomplete="off" />
+    <input id="search" type="search" placeholder="Search title, author, chapter…" autocomplete="off" enterkeyhint="search" />
     <select id="sort" aria-label="Sort by">
       <option value="recent">Recent</option>
       <option value="title">Title</option>
@@ -48,6 +48,14 @@
   </div>
 
   <ul id="book-list" class="book-list"></ul>
+
+  <section id="folder-empty" class="empty-state small" hidden>
+    <div class="empty-icon">📁</div>
+    <p>This folder is empty. Add files here, or use <strong>⋯ › Move to Folder</strong> on a book in the library.</p>
+    <button id="folder-add-btn" class="primary-btn">Add Audiobook Files</button>
+  </section>
+
+  <p id="search-empty" class="note center" hidden>No books match your search.</p>
 
   <section id="empty-state" class="empty-state" hidden>
     <div class="empty-icon">🎧</div>
@@ -220,7 +228,7 @@
 
 <audio id="audio" preload="auto"></audio>
 
-<script src="metadata.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="metadata.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

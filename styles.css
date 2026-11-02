@@ -567,3 +567,23 @@ body.has-mini .home { padding-bottom: calc(var(--safe-bottom) + 100px); }
 .option-chevron { flex: none; color: var(--faint); font-size: 24px; line-height: 1; }
 
 .back-btn { font-size: 17px; color: var(--accent); padding: 0 8px; justify-self: start; }
+
+/* ------------------------------------------------------------ Folders & search */
+
+.folder-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  flex: none;
+  font-size: 34px;
+  background: linear-gradient(135deg, #3a3346, #26212e);
+  border: 1px solid var(--line);
+}
+.book.folder .option-chevron { margin-right: 2px; }
+.row-sub { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty-state.small { padding: 40px 24px; }
+.empty-state.small p { margin-bottom: 18px; }
+.library-tools select[hidden] { display: none !important; }

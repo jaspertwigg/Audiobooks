@@ -32,6 +32,15 @@ IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
 
 ## Architecture worth knowing about
 
+- **Folders:** IndexedDB v2 adds a `folders` store (`{id, name, created}`).
+  One level only; `book.folderId` links a book to a folder. Deleting a folder
+  sets its books' `folderId` back to null. Folder view hash:
+  `#/library/f/<id>`. Search (`matches()`) covers title, author, folder,
+  chapter titles and file names across all folders.
+- **Importing:** after picking files you choose New book / separate books / Add
+  to an existing book (`appendToBook` pushes parts on the end). Action-sheet
+  options that open the file picker use `now:` so `input.click()` runs inside
+  the tap; iOS blocks the picker otherwise.
 - **Views:** a landing menu (`#home`, built by `renderHome()` in the same
   style as the user's Craft & Carry app: logo, name, stacked option cards) and
   the library (`#library`, hash `#/library`). The player and sheets overlay

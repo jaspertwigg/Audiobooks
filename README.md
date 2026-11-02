@@ -20,15 +20,27 @@ uploaded anywhere.
 **Library**
 - Add audio files from the Files app (iCloud Drive, On My iPhone, Downloads,
   etc.): MP3, M4A, M4B, AAC and WAV.
-- Pick **several files at once** and choose **"Add as one book"** to combine
-  them into one book that plays straight through. Files are put in order by
-  their names (`Part 2` comes before `Part 10`).
+- After picking files, choose:
+  - **New book**. With several files, choose one book that plays straight
+    through or separate books. Files are put in order by their names (`Part 2`
+    comes before `Part 10`).
+  - **Add to an existing book**. The files go on the end, so a new chapter
+    slots in after the rest. You can also use **⋯ › Add Files to This Book**
+    on a book.
+- **Folders**, e.g. one per series: tap **＋ › New Folder**, then
+  **⋯ › Move to Folder** on a book. Tap a folder to open it; its books are in
+  title order (Book 1, Book 2…). Tapping **＋** inside a folder adds new books
+  straight into it. Deleting a folder keeps its books and moves them back to
+  the main library.
+- **Search** at the top of the library looks through titles, authors, folder
+  names, chapter names and file names, including books inside folders.
 - Reads the **title, author, cover art and chapters** from the files. Chapter
   markers in `.m4b` and `.mp3` files are supported. In a multi-file book, each
   file is a chapter.
-- Progress bar and time left for each book, search, sort (recent, title,
-  author, date added).
-- **⋯** on a book: mark finished/unfinished, start over, rename, delete.
+- Progress bar and time left for each book, sort (recent, title, author, date
+  added).
+- **⋯** on a book: mark finished/unfinished, start over, move to folder, add
+  files, rename, delete.
 
 **Player**
 - Remembers your place in every book, even if the app is closed.

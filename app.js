@@ -42,11 +42,12 @@
   function openDB() {
     if (!dbPromise) {
       dbPromise = new Promise((resolve, reject) => {
-        const req = indexedDB.open("audiobooks", 1);
+        const req = indexedDB.open("audiobooks", 2);
         req.onupgradeneeded = () => {
           const db = req.result;
           if (!db.objectStoreNames.contains("books")) db.createObjectStore("books", { keyPath: "id" });
           if (!db.objectStoreNames.contains("blobs")) db.createObjectStore("blobs");
+          if (!db.objectStoreNames.contains("folders")) db.createObjectStore("folders", { keyPath: "id" });
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
@@ -263,7 +264,8 @@
     $("import-status").textContent = text;
   }
 
-  async function importBook(files, label) {
+  // Reads and stores each file; returns the parts plus the first file's tags and any cover.
+  async function readParts(files, label) {
     const parts = [];
     let first = null;
     let cover = null;
@@ -285,6 +287,11 @@
         chapters: (meta.chapters || []).map((c) => ({ title: c.title, start: c.start })),
       });
     }
+    return { parts, first, cover };
+  }
+
+  async function importBook(files, label, folderId) {
+    const { parts, first, cover } = await readParts(files, label);
 
     let title;
     if (files.length > 1) title = first.album || commonTitle(files.map((f) => stripExt(f.name)));
@@ -302,6 +309,7 @@
       lastPlayed: 0,
       pausedAt: 0,
       bookmarks: [],
+      folderId: folderId || null,
     };
     if (cover) {
       book.coverId = uid();
@@ -310,6 +318,23 @@
     await persist(book);
     books.push(book);
     return book;
+  }
+
+  // Adds files to the end of an existing book (e.g. a new chapter).
+  async function appendToBook(book, files) {
+    const { parts, cover } = await readParts(files, `Adding to ${book.title}`);
+    book.parts.push(...parts);
+    chapterCache.delete(book);
+    if (book.finished) book.finished = false;
+    if (!book.coverId && cover) {
+      book.coverId = uid();
+      await idb.put("blobs", await makeCoverThumbnail(cover), book.coverId);
+    }
+    await persist(book);
+    if (current && current.id === book.id) {
+      updatePositionState();
+      if (playerOpen) renderPlayer();
+    }
   }
 
   // "Harry Potter 01", "Harry Potter 02" -> "Harry Potter"
@@ -329,28 +354,61 @@
     }
     files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
 
-    let asOneBook = false;
-    if (files.length > 1) {
-      const choice = await chooseAction(`${files.length} files selected`, [
-        { label: `Add as one book (${files.length} parts)`, value: "one" },
-        { label: `Add as ${files.length} separate books`, value: "many" },
-      ]);
-      if (!choice) return;
-      asOneBook = choice === "one";
+    const folderId = importFolderId;
+    importFolderId = null;
+    const directTarget = addToBookId && books.find((b) => b.id === addToBookId);
+    addToBookId = null;
+    if (directTarget) {
+      requestPersistentStorage();
+      $("import-overlay").hidden = false;
+      try {
+        await appendToBook(directTarget, files);
+        toast(`Added ${files.length === 1 ? "1 file" : `${files.length} files`} to ${directTarget.title}`);
+      } catch (e) {
+        console.error(e);
+        alert("Something went wrong adding that file: " + (e && e.message ? e.message : e));
+      } finally {
+        $("import-overlay").hidden = true;
+        clearFileInput();
+      }
+      renderLibrary();
+      return;
+    }
+    const options = files.length > 1
+      ? [
+          { label: `New book (${files.length} parts)`, value: "one" },
+          { label: `${files.length} separate new books`, value: "many" },
+        ]
+      : [{ label: "New book", value: "one" }];
+    if (books.length) options.push({ label: "Add to an existing book…", value: "existing" });
+
+    let choice = "one";
+    if (options.length > 1) {
+      choice = await chooseAction(files.length > 1 ? `${files.length} files selected` : files[0].name, options);
+      if (!choice) return clearFileInput();
+    }
+
+    let target = null;
+    if (choice === "existing") {
+      target = await chooseBook("Add to which book?", folderId);
+      if (!target) return clearFileInput();
     }
 
     requestPersistentStorage();
     $("import-overlay").hidden = false;
-    let added = 0;
+    let message = "";
     try {
-      if (asOneBook) {
-        await importBook(files, "Adding book");
-        added = 1;
+      if (target) {
+        await appendToBook(target, files);
+        message = `Added ${files.length === 1 ? "1 file" : `${files.length} files`} to ${target.title}`;
+      } else if (choice === "one") {
+        await importBook(files, "Adding book", folderId);
+        message = "Book added";
       } else {
         for (let i = 0; i < files.length; i++) {
-          await importBook([files[i]], files.length > 1 ? `Adding book ${i + 1} of ${files.length}` : "Adding book");
-          added++;
+          await importBook([files[i]], `Adding book ${i + 1} of ${files.length}`, folderId);
         }
+        message = `${files.length} books added`;
       }
     } catch (e) {
       console.error(e);
@@ -360,11 +418,40 @@
         : "Something went wrong adding that file: " + (e && e.message ? e.message : e));
     } finally {
       $("import-overlay").hidden = true;
-      $("file-input").value = "";
+      clearFileInput();
     }
-    if (added) showView("library");
+    if (message) {
+      $("search").value = "";
+      showView("library", { folderId: target ? target.folderId : folderId });
+      toast(message);
+    }
     renderLibrary();
-    if (added) toast(added === 1 ? "Book added" : `${added} books added`);
+  }
+
+  function clearFileInput() {
+    $("file-input").value = "";
+  }
+
+  // Opens the file picker; new books land in `folderId` (or the main library).
+  let importFolderId = null;
+  let addToBookId = null;
+  function pickFiles(folderId) {
+    importFolderId = folderId || null;
+    addToBookId = null;
+    $("file-input").click();
+  }
+
+  // Lets you pick a book; books in `preferFolderId` are listed first.
+  function chooseBook(title, preferFolderId) {
+    const list = books.slice().sort((a, b) => {
+      const fa = a.folderId === preferFolderId && preferFolderId ? 0 : 1;
+      const fb = b.folderId === preferFolderId && preferFolderId ? 0 : 1;
+      return fa - fb || (b.lastPlayed || b.added) - (a.lastPlayed || a.added);
+    });
+    return chooseAction(title, list.map((b) => {
+      const folder = folderOf(b);
+      return { label: b.title, sub: [b.author, folder && `📁 ${folder.name}`].filter(Boolean).join(" · "), value: b.id };
+    })).then((id) => books.find((b) => b.id === id) || null);
   }
 
   async function deleteBook(book) {
@@ -380,6 +467,92 @@
     await idb.del("books", book.id);
     books = books.filter((b) => b.id !== book.id);
     renderLibrary();
+  }
+
+  // ================================================================ Folders (e.g. a series)
+
+  let folders = [];
+  let openFolderId = null;
+
+  const folderOf = (book) => (book.folderId && folders.find((f) => f.id === book.folderId)) || null;
+  const booksIn = (folder) => books.filter((b) => b.folderId === folder.id);
+
+  async function createFolder(suggested) {
+    const name = prompt("Folder name (for example, a series)", suggested || "");
+    if (!name || !name.trim()) return null;
+    const folder = { id: uid(), name: name.trim(), created: Date.now() };
+    folders.push(folder);
+    await idb.put("folders", folder);
+    return folder;
+  }
+
+  async function moveToFolder(book, folderId) {
+    book.folderId = folderId || null;
+    await persist(book);
+  }
+
+  async function folderActions(folder) {
+    const choice = await chooseAction(folder.name, [
+      { label: "Rename Folder…", value: "rename" },
+      { label: "Delete Folder (keep its books)", value: "delete", danger: true },
+    ]);
+    if (choice === "rename") {
+      const name = prompt("Folder name", folder.name);
+      if (name && name.trim()) {
+        folder.name = name.trim();
+        await idb.put("folders", folder);
+      }
+    } else if (choice === "delete") {
+      const inside = booksIn(folder);
+      if (!confirm(`Delete the folder “${folder.name}”? ${inside.length ? `Its ${inside.length} book${inside.length === 1 ? "" : "s"} will move back to the main library.` : ""}`)) return;
+      for (const b of inside) await moveToFolder(b, null);
+      folders = folders.filter((f) => f.id !== folder.id);
+      await idb.del("folders", folder.id);
+      if (openFolderId === folder.id) return showView("library");
+    }
+    renderLibrary();
+  }
+
+  async function chooseFolderFor(book) {
+    const options = folders
+      .filter((f) => f.id !== book.folderId)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      .map((f) => ({ label: `📁 ${f.name}`, value: f.id }));
+    options.push({ label: "＋ New Folder…", value: "new" });
+    if (book.folderId) options.push({ label: "Remove from Folder", value: "none" });
+    const choice = await chooseAction(`Move “${book.title}” to`, options);
+    if (!choice) return;
+    if (choice === "new") {
+      const folder = await createFolder(book.author ? "" : "");
+      if (!folder) return;
+      await moveToFolder(book, folder.id);
+      toast(`Moved to ${folder.name}`);
+    } else if (choice === "none") {
+      await moveToFolder(book, null);
+      toast("Moved to the main library");
+    } else {
+      await moveToFolder(book, choice);
+      toast(`Moved to ${folders.find((f) => f.id === choice).name}`);
+    }
+    renderLibrary();
+  }
+
+  async function addMenu() {
+    const folder = openFolderId && folders.find((f) => f.id === openFolderId);
+    const options = [{
+      label: folder ? `Add Audiobook Files to “${folder.name}”` : "Add Audiobook Files",
+      value: "files",
+      now: () => pickFiles(folder ? folder.id : null),
+    }];
+    if (!folder) options.push({ label: "New Folder", value: "folder" });
+    const choice = await chooseAction("Add", options);
+    if (choice === "folder") {
+      const f = await createFolder();
+      if (f) {
+        toast(`Folder “${f.name}” created. Use ⋯ › Move to Folder on a book to add it.`, 3500);
+        renderLibrary();
+      }
+    }
   }
 
   // ================================================================ Player
@@ -887,24 +1060,32 @@
 
   // ================================================================ Rendering: library
 
-  function sortedBooks() {
-    const q = $("search").value.trim().toLowerCase();
-    let list = books.filter((b) => !q || b.title.toLowerCase().includes(q) || (b.author || "").toLowerCase().includes(q));
-    const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
+  const byTitle = (a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
+
+  function sortBooks(list) {
     switch (settings.sort) {
       case "title":
-        list.sort(byTitle);
-        break;
+        return list.sort(byTitle);
       case "author":
-        list.sort((a, b) => (a.author || "~").localeCompare(b.author || "~") || byTitle(a, b));
-        break;
+        return list.sort((a, b) => (a.author || "~").localeCompare(b.author || "~") || byTitle(a, b));
       case "added":
-        list.sort((a, b) => b.added - a.added);
-        break;
+        return list.sort((a, b) => b.added - a.added);
       default:
-        list.sort((a, b) => (b.lastPlayed || b.added) - (a.lastPlayed || a.added));
+        return list.sort((a, b) => (b.lastPlayed || b.added) - (a.lastPlayed || a.added));
     }
-    return list;
+  }
+
+  // Search looks at the title, author, folder, chapter names and file names.
+  function matches(book, words) {
+    const folder = folderOf(book);
+    const hay = [
+      book.title,
+      book.author,
+      folder && folder.name,
+      ...chaptersOf(book).map((c) => c.title),
+      ...book.parts.map((p) => p.name),
+    ].filter(Boolean).join("\n").toLowerCase();
+    return words.every((w) => hay.includes(w));
   }
 
   function bookStatus(book) {
@@ -914,44 +1095,109 @@
     return `${short(total - book.position)} left`;
   }
 
+  function bookRow(book, { showFolder } = {}) {
+    const total = bookDuration(book);
+    const progress = book.finished ? 1 : total ? clamp(book.position / total, 0, 1) : 0;
+    const li = document.createElement("li");
+    li.className = "book" + (current && current.id === book.id ? " current" : "");
+    li.innerHTML = `
+      <button class="book-main">
+        <img class="cover" alt="" />
+        <span class="book-text">
+          <span class="book-title"></span>
+          <span class="book-author"></span>
+          <span class="book-progress">
+            <span class="bar"><i style="width:${(progress * 100).toFixed(1)}%"></i></span>
+            <span class="book-status"></span>
+          </span>
+        </span>
+        <span class="now-badge" aria-hidden="true">${current && current.id === book.id ? "♪" : ""}</span>
+      </button>
+      <button class="book-more icon-btn" aria-label="More options">⋯</button>`;
+    const folder = showFolder && folderOf(book);
+    li.querySelector(".book-title").textContent = book.title;
+    li.querySelector(".book-author").textContent = [book.author, folder && `📁 ${folder.name}`].filter(Boolean).join(" · ");
+    li.querySelector(".book-status").textContent = bookStatus(book);
+    if (book.finished) li.querySelector(".bar").classList.add("done");
+    applyCover(li.querySelector(".cover"), book);
+    li.querySelector(".book-main").addEventListener("click", () => {
+      unlockAudio(!current || current.id !== book.id);
+      openBook(book, { autoplay: true });
+      openPlayer();
+    });
+    li.querySelector(".book-more").addEventListener("click", () => bookActions(book));
+    return li;
+  }
+
+  function folderRow(folder) {
+    const inside = booksIn(folder);
+    const finished = inside.filter((b) => b.finished).length;
+    const li = document.createElement("li");
+    li.className = "book folder";
+    li.innerHTML = `
+      <button class="book-main">
+        <span class="cover folder-cover" aria-hidden="true">📁</span>
+        <span class="book-text">
+          <span class="book-title"></span>
+          <span class="book-author"></span>
+        </span>
+        <span class="option-chevron" aria-hidden="true">›</span>
+      </button>
+      <button class="book-more icon-btn" aria-label="Folder options">⋯</button>`;
+    li.querySelector(".book-title").textContent = folder.name;
+    li.querySelector(".book-author").textContent = inside.length
+      ? `${inside.length} book${inside.length === 1 ? "" : "s"}${finished ? ` · ${finished} finished` : ""}`
+      : "Empty";
+    li.querySelector(".book-main").addEventListener("click", () => {
+      $("search").value = "";
+      showView("library", { folderId: folder.id });
+    });
+    li.querySelector(".book-more").addEventListener("click", () => folderActions(folder));
+    return li;
+  }
+
   function renderLibrary() {
     const list = $("book-list");
     list.innerHTML = "";
-    $("empty-state").hidden = books.length > 0;
-    $("library-tools").hidden = books.length < 2;
-    $("sort").value = settings.sort;
+    const folder = openFolderId && folders.find((f) => f.id === openFolderId);
+    if (openFolderId && !folder) openFolderId = null;
 
-    for (const book of sortedBooks()) {
-      const total = bookDuration(book);
-      const progress = book.finished ? 1 : total ? clamp(book.position / total, 0, 1) : 0;
-      const li = document.createElement("li");
-      li.className = "book" + (current && current.id === book.id ? " current" : "");
-      li.innerHTML = `
-        <button class="book-main">
-          <img class="cover" alt="" />
-          <span class="book-text">
-            <span class="book-title"></span>
-            <span class="book-author"></span>
-            <span class="book-progress">
-              <span class="bar"><i style="width:${(progress * 100).toFixed(1)}%"></i></span>
-              <span class="book-status"></span>
-            </span>
-          </span>
-          <span class="now-badge" aria-hidden="true">${current && current.id === book.id ? "♪" : ""}</span>
-        </button>
-        <button class="book-more icon-btn" aria-label="More options">⋯</button>`;
-      li.querySelector(".book-title").textContent = book.title;
-      li.querySelector(".book-author").textContent = book.author || "";
-      li.querySelector(".book-status").textContent = bookStatus(book);
-      if (book.finished) li.querySelector(".bar").classList.add("done");
-      applyCover(li.querySelector(".cover"), book);
-      li.querySelector(".book-main").addEventListener("click", () => {
-        unlockAudio(!current || current.id !== book.id);
-        openBook(book, { autoplay: true });
-        openPlayer();
-      });
-      li.querySelector(".book-more").addEventListener("click", () => bookActions(book));
-      list.appendChild(li);
+    $("library-title").textContent = folder ? folder.name : "Library";
+    $("home-btn").textContent = folder ? "‹ Library" : "‹ Menu";
+    $("home-btn").setAttribute("aria-label", folder ? "Back to library" : "Back to menu");
+    $("search").placeholder = folder ? `Search ${folder.name}` : "Search title, author, chapter…";
+    $("sort").value = settings.sort;
+    $("sort").hidden = !!folder;
+    const anything = books.length > 0 || folders.length > 0;
+    $("library-tools").hidden = !anything;
+    $("empty-state").hidden = anything;
+
+    const words = $("search").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    if (words.length) {
+      // Search results: matching folders, then matching books from everywhere (or this folder).
+      if (!folder) {
+        folders
+          .filter((f) => words.every((w) => f.name.toLowerCase().includes(w)))
+          .forEach((f) => (list.appendChild(folderRow(f)), shown++));
+      }
+      sortBooks(books.filter((b) => (!folder || b.folderId === folder.id) && matches(b, words)))
+        .forEach((b) => (list.appendChild(bookRow(b, { showFolder: !folder })), shown++));
+      $("folder-empty").hidden = true;
+      $("search-empty").hidden = shown > 0;
+    } else if (folder) {
+      // Inside a folder: books in title order (Book 1, Book 2…).
+      booksIn(folder).sort(byTitle).forEach((b) => (list.appendChild(bookRow(b)), shown++));
+      $("folder-empty").hidden = shown > 0;
+      $("search-empty").hidden = true;
+    } else {
+      folders
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }))
+        .forEach((f) => list.appendChild(folderRow(f)));
+      sortBooks(books.filter((b) => !folderOf(b))).forEach((b) => list.appendChild(bookRow(b)));
+      $("folder-empty").hidden = true;
+      $("search-empty").hidden = true;
     }
     renderStorage();
     renderHome();
@@ -972,6 +1218,11 @@
     const choice = await chooseAction(book.title, [
       { label: book.finished ? "Mark as Unfinished" : "Mark as Finished", value: "finish" },
       { label: "Start Over", value: "restart" },
+      { label: book.folderId ? "Move to Another Folder…" : "Move to Folder…", value: "move" },
+      { label: "Add Files to This Book…", value: "add", now: () => {
+        pickFiles(null);
+        addToBookId = book.id;
+      } },
       { label: "Rename…", value: "rename" },
       { label: "Delete Book", value: "delete", danger: true },
     ]);
@@ -995,6 +1246,10 @@
         renderPlayer();
         renderMini();
       }
+    } else if (choice === "move") {
+      return chooseFolderFor(book);
+    } else if (choice === "add") {
+      return;
     } else if (choice === "delete") {
       if (confirm(`Delete “${book.title}”? Its audio will be removed from this iPhone.`)) await deleteBook(book);
       return;
@@ -1005,16 +1260,18 @@
   // ================================================================ Home (landing page)
 
   function viewFromHash() {
-    return location.hash === "#/library" ? "library" : "home";
+    const m = location.hash.match(/^#\/library(?:\/f\/([\w-]+))?$/);
+    return m ? { name: "library", folderId: m[1] || null } : { name: "home", folderId: null };
   }
 
-  function showView(name, { fromHash } = {}) {
+  function showView(name, { fromHash, folderId } = {}) {
     const library = name === "library";
+    openFolderId = library ? folderId || null : null;
     $("home").hidden = library;
     $("library").hidden = !library;
     $("library-header").hidden = !library;
     if (!fromHash) {
-      const hash = library ? "#/library" : "#/";
+      const hash = library ? (openFolderId ? `#/library/f/${openFolderId}` : "#/library") : "#/";
       if (location.hash !== hash) history.pushState(null, "", hash);
     }
     window.scrollTo(0, 0);
@@ -1066,9 +1323,11 @@
         openPlayer();
       }));
     }
-    box.appendChild(homeOption("➕", "Add a book", "MP3, M4A or M4B from the Files app", () => $("file-input").click()));
+    box.appendChild(homeOption("➕", "Add a book", "New book, or more files for one you have", () => pickFiles(null)));
     box.appendChild(homeOption("📚", "Audiobook library",
-      books.length ? `${books.length} book${books.length === 1 ? "" : "s"} · search and sort` : "No books yet",
+      books.length
+        ? `${books.length} book${books.length === 1 ? "" : "s"}${folders.length ? ` · ${folders.length} folder${folders.length === 1 ? "" : "s"}` : ""} · search`
+        : "No books yet",
       () => showView("library")));
     box.appendChild(homeOption("🔗", "Share the app", "Send the link to someone", shareApp));
     box.appendChild(homeOption("⚙️", "Settings", "Skip times and smart rewind", () => {
@@ -1245,7 +1504,17 @@
       const b = document.createElement("button");
       b.className = "row-btn" + (opt.danger ? " danger" : "");
       b.textContent = opt.label;
-      b.addEventListener("click", () => closeSheet(opt.value));
+      if (opt.sub) {
+        const sub = document.createElement("span");
+        sub.className = "row-sub";
+        sub.textContent = opt.sub;
+        b.appendChild(sub);
+      }
+      // `now` runs inside the tap itself; iPhone only opens the file picker from a tap.
+      b.addEventListener("click", () => {
+        if (opt.now) opt.now();
+        closeSheet(opt.value);
+      });
       body.appendChild(b);
     }
     openSheet("action-sheet");
@@ -1379,8 +1648,9 @@
   // ================================================================ Wiring
 
   function wire() {
-    $("add-btn").addEventListener("click", () => $("file-input").click());
-    $("empty-add-btn").addEventListener("click", () => $("file-input").click());
+    $("add-btn").addEventListener("click", addMenu);
+    $("empty-add-btn").addEventListener("click", () => pickFiles(null));
+    $("folder-add-btn").addEventListener("click", () => pickFiles(openFolderId));
     $("file-input").addEventListener("change", (e) => handleFiles(e.target.files));
     $("search").addEventListener("input", renderLibrary);
     $("sort").addEventListener("change", (e) => {
@@ -1389,8 +1659,15 @@
       renderLibrary();
     });
 
-    $("home-btn").addEventListener("click", () => showView("home"));
-    window.addEventListener("hashchange", () => showView(viewFromHash(), { fromHash: true }));
+    $("home-btn").addEventListener("click", () => {
+      $("search").value = "";
+      if (openFolderId) showView("library");
+      else showView("home");
+    });
+    window.addEventListener("hashchange", () => {
+      const v = viewFromHash();
+      showView(v.name, { fromHash: true, folderId: v.folderId });
+    });
 
     // Mini player
     $("mini-open").addEventListener("click", openPlayer);
@@ -1526,12 +1803,14 @@
     wire();
     try {
       books = await idb.all("books");
+      folders = await idb.all("folders");
     } catch (e) {
       console.error(e);
       toast("Couldn't open your library storage");
       books = [];
     }
-    showView(viewFromHash(), { fromHash: true });
+    const v = viewFromHash();
+    showView(v.name, { fromHash: true, folderId: v.folderId });
     const last = settings.currentBookId && books.find((b) => b.id === settings.currentBookId);
     if (last) openBook(last, { autoplay: false });
     renderMini();
