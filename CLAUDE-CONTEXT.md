@@ -76,6 +76,11 @@ IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
 - **Service worker:** network-first with cache fallback (same lesson as Footy
   Stats Counter: cache-first left installs stuck on old versions). Bump
   `CACHE` in `service-worker.js` when adding new static files.
+  **On every release, bump the `?v=` number on `styles.css`, `metadata.js`
+  and `app.js` in `index.html` as well.** The service worker fetches with
+  `cache: "no-cache"` too. Without both, GitHub Pages' 10-minute browser
+  caching once served a new `index.html` with an old `app.js`/`styles.css`,
+  which left the app unstyled with no menu.
 
 ## Tone/process notes
 

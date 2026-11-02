@@ -1,4 +1,4 @@
-const CACHE = "audiobooks-v2";
+const CACHE = "audiobooks-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -35,7 +35,10 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    fetch(req)
+    // "no-cache" makes the browser check with GitHub every time instead of
+    // reusing its own saved copy (GitHub Pages lets phones keep files for up
+    // to 10 minutes, which mixed old and new files right after an update).
+    fetch(req, { cache: "no-cache" })
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
@@ -43,6 +46,10 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
+      .catch(() =>
+        caches
+          .match(req, { ignoreSearch: true })
+          .then((r) => r || (req.mode === "navigate" ? caches.match("./index.html") : Response.error()))
+      )
   );
 });
