@@ -46,29 +46,10 @@ uploaded anywhere.
 **Sleep timer**
 - 5, 10, 15, 20, 30, 45, 60 or 90 minutes, a custom length, or **end of
   chapter**.
-- **Shake your iPhone to extend the timer by its original length.** A 15-minute
-  timer with 2 minutes left becomes 17 minutes. In end-of-chapter mode, a shake
-  carries on to the end of the next chapter.
-- A shake needs three firm back-and-forth movements, so rolling over in bed
-  doesn't count. A soft two-note chime confirms it worked (can be turned off).
-- The countdown only runs while audio is actually playing.
-
-### About shaking with the screen locked
-
-iPhone only sends motion (shake) data to web apps **while the screen is on**.
-So when you start a sleep timer, the app switches to a **dim bedside screen**:
-pure black with a faint countdown, and it stops the screen from auto-locking.
-Shaking works the whole time it's showing. When the timer ends, playback
-pauses and the phone is allowed to lock as normal.
-
-- Tap the bedside screen to close it. The timer keeps running and the screen
-  stays on, so shaking still works.
-- Pressing the side button to lock the phone stops shakes from reaching the
-  app until you unlock it. The timer still stops playback on time.
-- Don't want the screen on? Turn off **Settings › Keep screen on for shaking**.
-- Keeping the screen awake from a Home Screen web app needs **iOS 18.4 or
-  later**. On older iOS, set *Settings › Display & Brightness › Auto-Lock* to a
-  longer time if you want to shake later into the timer.
+- **＋** in the sleep timer panel adds the timer's original length again (or,
+  in end-of-chapter mode, carries on to the end of the next chapter).
+- The countdown only runs while audio is actually playing, and the phone can
+  lock as normal while it counts down.
 
 ## Install on iPhone
 
@@ -103,15 +84,15 @@ it opens with signal, so you don't need to reinstall it.
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000`. Shake detection, the lock screen controls
-and keeping the screen awake need a real iPhone over HTTPS (GitHub Pages).
+Then open `http://localhost:8000`. The lock screen controls need a real iPhone
+over HTTPS (GitHub Pages).
 
 ## Project structure
 
 ```
-index.html            App shell: library, player, sheets, bedside screen
+index.html            App shell: menu, library, player, sheets
 styles.css            Dark iOS-style UI
-app.js                Library storage (IndexedDB), player, sleep timer, shake detection
+app.js                Library storage (IndexedDB), player, sleep timer
 metadata.js           Reads titles, authors, covers, chapters and durations from MP3/M4B/M4A/WAV
 manifest.webmanifest  PWA metadata (name, icons, colours)
 service-worker.js     Offline support (network-first, so updates always arrive)

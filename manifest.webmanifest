@@ -1,7 +1,7 @@
 {
   "name": "Audiobooks",
   "short_name": "Audiobooks",
-  "description": "Listen to your own audiobook files, with a shake-to-extend sleep timer.",
+  "description": "Listen to your own audiobook files, with chapters, bookmarks and a sleep timer.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Audiobooks" />
 <link rel="apple-touch-icon" href="icons/icon-180.png" />
 <link rel="icon" href="icons/icon-192.png" />
-<link rel="stylesheet" href="styles.css?v=4" />
+<link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
 
@@ -129,11 +129,9 @@
     <div id="sleep-active" class="sleep-active" hidden>
       <div id="sleep-countdown" class="sleep-countdown">15:00</div>
       <div id="sleep-active-sub" class="sleep-active-sub">remaining</div>
-      <div id="sleep-shake-hint" class="shake-hint"></div>
       <div id="sleep-paused-note" class="note" hidden>Paused — the timer continues when playback does.</div>
       <div class="sleep-actions">
         <button id="sleep-extend" class="secondary-btn"></button>
-        <button id="sleep-bedside" class="secondary-btn">🌙 Bedside Screen</button>
         <button id="sleep-off" class="danger-btn">Turn Off</button>
       </div>
     </div>
@@ -150,11 +148,7 @@
       <button id="custom-start" class="primary-btn small">Start</button>
     </div>
 
-    <p class="sheet-footnote">
-      <strong>Shake your iPhone</strong> while the timer is running to add the timer's original length again.
-      iPhone only passes shakes to web apps while the screen is on, so the timer keeps the screen awake on a dim
-      bedside screen (you can turn this off in Settings). The countdown pauses whenever playback is paused.
-    </p>
+    <p class="sheet-footnote">The countdown pauses whenever playback is paused.</p>
   </div>
 </section>
 
@@ -194,11 +188,7 @@
     <p class="setting-note">Rewinds a few seconds when you resume after a pause — longer after longer breaks.</p>
 
     <h4 class="sheet-label">Sleep timer</h4>
-    <label class="setting-row">Shake to extend<input id="set-shake" type="checkbox" class="switch" /></label>
-    <label class="setting-row">Keep screen on for shaking<input id="set-awake" type="checkbox" class="switch" /></label>
-    <p class="setting-note">Shows a dim bedside screen while the timer runs so shakes still reach the app. Turn off to let the phone lock normally (the timer still stops playback, but shaking won't work while locked).</p>
-    <label class="setting-row">Chime when extended<input id="set-chime" type="checkbox" class="switch" /></label>
-    <label class="setting-row">Fade out at the end<input id="set-fade" type="checkbox" class="switch" /></label>
+    <label id="fade-row" class="setting-row">Fade out at the end<input id="set-fade" type="checkbox" class="switch" /></label>
 
     <h4 class="sheet-label">Storage</h4>
     <p id="storage-detail" class="setting-note"></p>
@@ -222,21 +212,11 @@
   </div>
 </div>
 
-<div id="bedside" class="bedside" hidden>
-  <div class="bedside-inner">
-    <div id="bedside-time" class="bedside-time">15:00</div>
-    <div id="bedside-hint" class="bedside-hint">Shake to add 15 min</div>
-    <div id="bedside-flash" class="bedside-flash"></div>
-  </div>
-  <div class="bedside-foot">Tap to close · timer keeps running</div>
-</div>
-
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <audio id="audio" preload="auto"></audio>
-<label id="haptic" class="haptic" aria-hidden="true"><input type="checkbox" switch /></label>
 
-<script src="metadata.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="metadata.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

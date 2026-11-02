@@ -408,8 +408,6 @@ body.has-mini .library { padding-bottom: calc(var(--safe-bottom) + 100px); }
 .sleep-active { text-align: center; padding: 10px 0 4px; }
 .sleep-countdown { font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
 .sleep-active-sub { color: var(--muted); margin-top: -4px; }
-.shake-hint { color: var(--accent); font-weight: 600; margin-top: 10px; font-size: 15px; }
-.shake-hint:empty { display: none; }
 .sleep-actions { display: grid; gap: 8px; margin-top: 16px; }
 
 .segmented { display: flex; background: var(--surface-2); border-radius: 10px; padding: 2px; }
@@ -501,38 +499,6 @@ input.switch:disabled { opacity: 0.4; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.bedside {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--safe-top) 24px var(--safe-bottom);
-}
-.bedside-inner { text-align: center; position: relative; }
-.bedside-time {
-  font-size: 72px;
-  font-weight: 200;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 140, 70, 0.42);
-  letter-spacing: -1px;
-}
-.bedside-hint { color: rgba(255, 140, 70, 0.3); font-size: 16px; margin-top: 4px; }
-.bedside-foot { position: absolute; bottom: calc(var(--safe-bottom) + 22px); color: rgba(255, 255, 255, 0.16); font-size: 13px; }
-.bedside-flash {
-  position: absolute;
-  inset: -40px -60px;
-  border-radius: 40px;
-  background: radial-gradient(rgba(245, 165, 36, 0.35), transparent 70%);
-  opacity: 0;
-  pointer-events: none;
-}
-.bedside-flash.go { animation: flash 1.2s ease-out; }
-@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
-
 .toast {
   position: fixed;
   left: 50%;
@@ -554,7 +520,6 @@ input.switch:disabled { opacity: 0.4; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-.haptic { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; left: -100px; }
 
 /* ------------------------------------------------------------ Home (landing page) */
 

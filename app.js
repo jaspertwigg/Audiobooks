@@ -15,9 +15,6 @@
     skipBack: 15,
     skipFwd: 30,
     smartRewind: true,
-    shake: true,
-    awake: true,
-    chime: true,
     fade: true,
     rate: 1,
     sort: "recent",
@@ -758,14 +755,7 @@
     if (canSetVolume()) audio.volume = clamp(v, 0, 1);
   }
 
-  // Call from inside a tap: asks for motion access and prepares the chime.
-  function prepareSleepFeatures() {
-    if (settings.shake) requestMotionPermission();
-    if (settings.chime) prepareChime();
-  }
-
   function startSleep(seconds) {
-    prepareSleepFeatures();
     sleep.mode = "duration";
     sleep.original = seconds;
     sleep.remaining = seconds;
@@ -775,7 +765,6 @@
   function startSleepAtChapterEnd() {
     const ch = currentChapter();
     if (!ch) return;
-    prepareSleepFeatures();
     sleep.mode = "chapter";
     sleep.original = 0;
     sleep.chapterEnd = ch.end;
@@ -789,8 +778,6 @@
     clearInterval(sleepInterval);
     sleepInterval = setInterval(sleepTick, 250);
     if (!isPlaying()) play();
-    updateWakeLock();
-    if (settings.awake) showBedside();
     renderSleep();
   }
 
@@ -800,9 +787,6 @@
     clearInterval(sleepInterval);
     sleepInterval = null;
     setVolume(1);
-    stopMotion();
-    updateWakeLock();
-    hideBedside();
     renderSleep();
   }
 
@@ -819,9 +803,6 @@
       sleep.remaining = Math.max(0, (sleep.chapterEnd - livePosition()) / settings.rate);
     }
 
-    if (settings.shake && playing) startMotion();
-    else stopMotion();
-
     if (sleep.mode === "duration" && settings.fade && playing && sleep.remaining < FADE_SECONDS) {
       setVolume(sleep.remaining / FADE_SECONDS);
     }
@@ -835,7 +816,7 @@
     renderSleepCountdown();
   }
 
-  function extendSleep(fromShake) {
+  function extendSleep() {
     if (sleep.mode === "off") return;
     if (sleep.mode === "duration") {
       sleep.remaining += sleep.original;
@@ -845,160 +826,8 @@
       sleep.remaining = Math.max(0, (sleep.chapterEnd - livePosition()) / settings.rate);
     }
     setVolume(1);
-    if (fromShake) {
-      if (settings.chime) playChime();
-      haptic();
-    }
-    flashBedside();
     toast(sleep.mode === "duration" ? `Sleep timer +${minutesLabel(sleep.original)}` : "Playing to the end of the next chapter");
     renderSleep();
-  }
-
-  function shakeHint() {
-    if (sleep.mode === "duration") return `Shake to add ${minutesLabel(sleep.original)}`;
-    if (sleep.mode === "chapter") return "Shake to carry on to the next chapter";
-    return "";
-  }
-
-  // ---- shake detection
-
-  let motionPermission = typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission !== "function";
-  let motionOn = false;
-  const shakeState = { times: [], axis: -1, sign: 0, cooldown: 0 };
-
-  function requestMotionPermission() {
-    if (motionPermission || typeof DeviceMotionEvent === "undefined") return;
-    if (typeof DeviceMotionEvent.requestPermission === "function") {
-      DeviceMotionEvent.requestPermission()
-        .then((r) => {
-          motionPermission = r === "granted";
-          if (!motionPermission) toast("Motion access is off, so shaking won't extend the timer");
-        })
-        .catch(() => {});
-    }
-  }
-
-  function startMotion() {
-    if (motionOn || !motionPermission) return;
-    motionOn = true;
-    shakeState.times = [];
-    window.addEventListener("devicemotion", onMotion);
-  }
-  function stopMotion() {
-    if (!motionOn) return;
-    motionOn = false;
-    window.removeEventListener("devicemotion", onMotion);
-  }
-
-  // A shake = 3 strong jolts that change direction within 1.2 seconds,
-  // so rolling over or putting the phone down doesn't count.
-  function onMotion(e) {
-    let a = e.acceleration;
-    let threshold = 13; // m/s², gravity removed (~1.3 g)
-    if (!a || a.x == null) {
-      a = e.accelerationIncludingGravity;
-      threshold = 23;
-    }
-    if (!a || a.x == null) return;
-    const now = performance.now();
-    if (now < shakeState.cooldown) return;
-    const comps = [a.x || 0, a.y || 0, a.z || 0];
-    const mags = comps.map(Math.abs);
-    const peak = Math.max(...mags);
-    if (peak < threshold) return;
-    const axis = mags.indexOf(peak);
-    const sign = comps[axis] >= 0 ? 1 : -1;
-    const last = shakeState.times[shakeState.times.length - 1];
-    if (last && now - last > 1200) {
-      shakeState.times = [];
-      shakeState.axis = -1;
-    }
-    if (axis === shakeState.axis && sign === shakeState.sign) return;
-    shakeState.axis = axis;
-    shakeState.sign = sign;
-    shakeState.times.push(now);
-    shakeState.times = shakeState.times.filter((t) => now - t <= 1200);
-    if (shakeState.times.length >= 3) {
-      shakeState.times = [];
-      shakeState.axis = -1;
-      shakeState.cooldown = now + 1500;
-      if (sleep.mode !== "off" && !audio.paused) extendSleep(true);
-    }
-  }
-
-  // ---- confirmation chime & haptic
-
-  let chimeCtx = null;
-  function prepareChime() {
-    try {
-      if (!chimeCtx) chimeCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (chimeCtx.state === "suspended") chimeCtx.resume();
-    } catch (e) {
-      chimeCtx = null;
-    }
-  }
-  function playChime() {
-    if (!chimeCtx) return;
-    try {
-      if (chimeCtx.state === "suspended") chimeCtx.resume();
-      const t0 = chimeCtx.currentTime + 0.02;
-      [659.25, 987.77].forEach((freq, i) => {
-        const osc = chimeCtx.createOscillator();
-        const gain = chimeCtx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        const start = t0 + i * 0.16;
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
-        osc.connect(gain).connect(chimeCtx.destination);
-        osc.start(start);
-        osc.stop(start + 0.5);
-      });
-    } catch (e) {}
-  }
-  function haptic() {
-    if (navigator.vibrate) {
-      navigator.vibrate([40, 60, 40]);
-      return;
-    }
-    // Safari 18+: toggling a switch control gives a light haptic tap.
-    try {
-      $("haptic").click();
-    } catch (e) {}
-  }
-
-  // ---- keep the screen awake (shakes only reach web apps while it's on)
-
-  let wakeLock = null;
-  async function updateWakeLock() {
-    const want = sleep.mode !== "off" && settings.awake && settings.shake && document.visibilityState === "visible";
-    if (want && !wakeLock && navigator.wakeLock) {
-      try {
-        wakeLock = await navigator.wakeLock.request("screen");
-        wakeLock.addEventListener("release", () => (wakeLock = null));
-      } catch (e) {
-        wakeLock = null;
-      }
-    } else if (!want && wakeLock) {
-      wakeLock.release().catch(() => {});
-      wakeLock = null;
-    }
-  }
-
-  function showBedside() {
-    if (sleep.mode === "off") return;
-    $("bedside").hidden = false;
-    renderSleepCountdown();
-  }
-  function hideBedside() {
-    $("bedside").hidden = true;
-  }
-  function flashBedside() {
-    const el = $("bedside-flash");
-    el.classList.remove("go");
-    void el.offsetWidth;
-    el.classList.add("go");
   }
 
   // ================================================================ Rendering: library
@@ -1187,7 +1016,7 @@
       books.length ? `${books.length} book${books.length === 1 ? "" : "s"} · search and sort` : "No books yet",
       () => showView("library")));
     box.appendChild(homeOption("🔗", "Share the app", "Send the link to someone", shareApp));
-    box.appendChild(homeOption("⚙️", "Settings", "Skip times, rewind, shake to extend", () => {
+    box.appendChild(homeOption("⚙️", "Settings", "Skip times and smart rewind", () => {
       renderSettings();
       openSheet("settings-sheet");
     }));
@@ -1302,8 +1131,6 @@
     $("sleep-btn").classList.toggle("active", active);
     $("sleep-active").hidden = !active;
     $("sleep-extend").textContent = sleep.mode === "chapter" ? "＋ Next Chapter" : `＋ ${minutesLabel(sleep.original)}`;
-    $("sleep-shake-hint").textContent = settings.shake ? "📳 " + shakeHint() : "";
-    $("bedside-hint").textContent = settings.shake ? shakeHint() : "";
     $("sleep-active-sub").textContent = sleep.mode === "chapter" ? "until the end of this chapter" : "remaining";
     $("sleep-chapter").disabled = !currentChapter();
     $("sleep-chapter").classList.toggle("selected", sleep.mode === "chapter");
@@ -1319,7 +1146,6 @@
     const t = clock(sleep.remaining);
     $("sleep-label").textContent = active ? t : "Sleep";
     $("sleep-countdown").textContent = t;
-    $("bedside-time").textContent = t;
     $("sleep-paused-note").hidden = !active || !audio.paused;
     $("mini-sub").dataset.sleep = active ? `☾ ${t}` : "";
   }
@@ -1488,12 +1314,10 @@
     $("set-skip-back").value = String(settings.skipBack);
     $("set-skip-fwd").value = String(settings.skipFwd);
     $("set-smart-rewind").checked = settings.smartRewind;
-    $("set-shake").checked = settings.shake;
-    $("set-awake").checked = settings.awake;
-    $("set-chime").checked = settings.chime;
     $("set-fade").checked = settings.fade;
-    $("set-awake").disabled = !settings.shake;
-    $("set-chime").disabled = !settings.shake;
+    // iPhone ignores volume changes from web pages, so fading isn't possible there.
+    $("fade-row").hidden = !canSetVolume();
+    $("fade-row").previousElementSibling.hidden = !canSetVolume();
     renderStorage();
   }
 
@@ -1587,15 +1411,10 @@
       startSleepAtChapterEnd();
       closeSheet();
     });
-    $("sleep-extend").addEventListener("click", () => extendSleep(false));
+    $("sleep-extend").addEventListener("click", () => extendSleep());
     $("sleep-off").addEventListener("click", () => {
       stopSleep();
       toast("Sleep timer off");
-    });
-    $("sleep-bedside").addEventListener("click", () => {
-      closeSheet();
-      showBedside();
-      updateWakeLock();
     });
     $("custom-minus").addEventListener("click", () => {
       settings.customMinutes = Math.max(1, settings.customMinutes - (settings.customMinutes > 30 ? 10 : 5));
@@ -1611,7 +1430,6 @@
       startSleep(settings.customMinutes * 60);
       closeSheet();
     });
-    $("bedside").addEventListener("click", hideBedside);
 
     // Settings
     const bindSelect = (id, key) =>
@@ -1632,20 +1450,13 @@
         if (after) after();
       });
     bindToggle("set-smart-rewind", "smartRewind");
-    bindToggle("set-shake", "shake", () => {
-      if (settings.shake) requestMotionPermission();
-      updateWakeLock();
-    });
-    bindToggle("set-awake", "awake", updateWakeLock);
-    bindToggle("set-chime", "chime", () => settings.chime && prepareChime());
     bindToggle("set-fade", "fade", () => setVolume(1));
 
-    // Lifecycle: save often, re-take the wake lock when we come back.
+    // Lifecycle: save often.
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") savePosition(true);
       else {
         sleepTick();
-        updateWakeLock();
         renderProgress();
       }
     });
@@ -1681,8 +1492,6 @@
     livePosition,
     extendSleep,
     startSleep,
-    onMotion,
-    grantMotion() { motionPermission = true; },
   };
 
   start();

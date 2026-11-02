@@ -10,8 +10,7 @@ see what they're actually asking for before doing anything with it.
 ## The project in one paragraph
 
 Audiobooks is a mobile web app (installable PWA, no App Store) for listening
-to the user's own audiobook files on iPhone, with a sleep timer that is
-extended by its original length when the phone is shaken. Plain
+to the user's own audiobook files on iPhone, with a sleep timer. Plain
 HTML/CSS/JS, no framework, no build step, hosted as static files on GitHub
 Pages. There is no backend: audio files are stored on the device in
 IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
@@ -66,13 +65,11 @@ IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
   ticked by `setInterval` and `timeupdate` (JS keeps running in the
   background while audio plays). `audio.volume` is read-only on iOS, so the
   fade-out only works on other platforms.
-- **Shake:** `devicemotion` (needs `DeviceMotionEvent.requestPermission()`
-  from a tap; it's requested when a timer starts). Three direction-changing
-  jolts over ~13 m/s² within 1.2s, with a 1.5s cooldown. **iOS doesn't deliver
-  motion events while the screen is off**, which is why the bedside screen
-  plus Screen Wake Lock exists (wake lock works in home-screen apps from
-  iOS 18.4). Don't claim shake works with the phone locked. Confirmation is a
-  WebAudio chime plus a best-effort haptic (Safari 18 switch-checkbox trick).
+- **Shake-to-extend was removed** at the user's request. iOS only delivers
+  `devicemotion` to web apps while the screen is on, so it needed a bedside
+  screen plus Screen Wake Lock, which the user decided wasn't worth it. Don't
+  re-add it unless they ask. The sleep sheet's ＋ button still extends by the
+  original length.
 - **Service worker:** network-first with cache fallback (same lesson as Footy
   Stats Counter: cache-first left installs stuck on old versions). Bump
   `CACHE` in `service-worker.js` when adding new static files.
