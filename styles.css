@@ -208,21 +208,28 @@ body.has-mini .library { padding-bottom: calc(var(--safe-bottom) + 100px); }
   padding: 0 24px 12px;
   min-height: 0;
 }
+/* The cover takes whatever space is left after the controls and text,
+   and never grows past it (so it can't cover the buttons or title). */
 .player-cover-wrap {
-  flex: 1 1 auto;
-  min-height: 140px;
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 0 16px;
+  margin: 8px 0 16px;
+  container-type: size;
 }
 .big-cover {
-  width: min(100%, 340px, 42vh);
+  width: min(100%, 300px, 30vh); /* fallback for older iOS */
   aspect-ratio: 1;
   height: auto;
+  max-height: 100%;
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   transition: transform 0.4s ease;
+}
+@supports (width: 1cqh) {
+  .big-cover { width: min(100cqw, 100cqh, 340px); }
 }
 .big-cover.paused { transform: scale(0.9); }
 
