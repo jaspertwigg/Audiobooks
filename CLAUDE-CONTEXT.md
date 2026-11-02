@@ -70,6 +70,14 @@ IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
   screen plus Screen Wake Lock, which the user decided wasn't worth it. Don't
   re-add it unless they ask. The sleep sheet's ＋ button still extends by the
   original length.
+- **Play-to-restart** is the replacement. When the timer expires it saves
+  `settings.sleepRestart = {mode, original, chapterEnd, at}` (localStorage,
+  so it survives the page being reloaded). `play()` takes it within
+  `RESTART_MINUTES` (15) and restarts the same timer, which covers lock
+  screen, Control Center and headphone play. "Turn Off" clears it. Web apps
+  can't add custom lock-screen buttons or detect the volume buttons. The
+  lock-screen artist line shows "☾ N min left · chapter", refreshed each
+  minute.
 - **Service worker:** network-first with cache fallback (same lesson as Footy
   Stats Counter: cache-first left installs stuck on old versions). Bump
   `CACHE` in `service-worker.js` when adding new static files.

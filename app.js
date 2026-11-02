@@ -540,6 +540,7 @@
   function play() {
     if (!current) return;
     unlockAudio();
+    const restart = takeSleepRestart();
     const total = bookDuration(current);
     let pos = livePosition();
     if (total && pos >= total - 1) {
@@ -561,6 +562,7 @@
       audio.play().catch(() => toast("Tap play to start"));
     }
     renderPlayState();
+    if (restart) restartSleep(restart);
   }
 
   function pause() {
@@ -698,7 +700,7 @@
     if (book !== current) return;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: book.title,
-      artist: ch ? ch.title : book.author || "",
+      artist: [sleepLockScreenText(), ch ? ch.title : book.author || ""].filter(Boolean).join(" · "),
       album: book.author || book.title,
       artwork: art
         ? [{ src: art, sizes: "600x600", type: "image/jpeg" }]
@@ -762,8 +764,12 @@
     beginSleep();
   }
 
-  function startSleepAtChapterEnd() {
-    const ch = currentChapter();
+  // `after`: when restarting, play to the end of the chapter that follows the
+  // one the timer last stopped at (smart rewind may have stepped back into it).
+  function startSleepAtChapterEnd(after) {
+    const ch = after != null
+      ? chaptersOf(current).find((c) => c.start >= after - 0.5) || currentChapter()
+      : currentChapter();
     if (!ch) return;
     sleep.mode = "chapter";
     sleep.original = 0;
@@ -773,6 +779,8 @@
   }
 
   function beginSleep() {
+    clearSleepRestart();
+    lastLockMinute = null;
     sleep.lastTick = Date.now();
     setVolume(1);
     clearInterval(sleepInterval);
@@ -788,6 +796,7 @@
     sleepInterval = null;
     setVolume(1);
     renderSleep();
+    updateMediaSession();
   }
 
   function sleepTick() {
@@ -808,12 +817,57 @@
     }
 
     if (sleep.remaining <= 0) {
+      const ended = { mode: sleep.mode, original: sleep.original, chapterEnd: sleep.chapterEnd, at: Date.now() };
       pause();
       stopSleep();
-      toast("Sleep timer ended — goodnight");
+      settings.sleepRestart = ended;
+      saveSettings();
+      toast(`Sleep timer ended. Press play within ${RESTART_MINUTES} min to start it again.`, 4000);
       return;
     }
     renderSleepCountdown();
+
+    // Keep the lock screen countdown current (it shows whole minutes).
+    const minute = Math.ceil(sleep.remaining / 60);
+    if (minute !== lastLockMinute) {
+      lastLockMinute = minute;
+      updateMediaSession();
+    }
+  }
+
+  // ---- press play soon after the timer ends to start it again
+
+  const RESTART_MINUTES = 15;
+  let lastLockMinute = null;
+
+  function takeSleepRestart() {
+    const r = settings.sleepRestart;
+    if (!r || sleep.mode !== "off") return null;
+    clearSleepRestart();
+    return Date.now() - r.at <= RESTART_MINUTES * 60 * 1000 ? r : null;
+  }
+
+  function clearSleepRestart() {
+    if (!settings.sleepRestart) return;
+    settings.sleepRestart = null;
+    saveSettings();
+  }
+
+  function restartSleep(r) {
+    if (r.mode === "chapter") {
+      startSleepAtChapterEnd(r.chapterEnd);
+      toast("Sleep timer restarted: end of this chapter");
+    } else {
+      startSleep(r.original);
+      toast(`Sleep timer restarted: ${minutesLabel(r.original)}`);
+    }
+  }
+
+  function sleepLockScreenText() {
+    if (sleep.mode === "off") return "";
+    if (sleep.mode === "chapter") return "☾ end of chapter";
+    const m = Math.ceil(sleep.remaining / 60);
+    return m <= 1 ? "☾ under 1 min left" : `☾ ${m} min left`;
   }
 
   function extendSleep() {
@@ -826,6 +880,7 @@
       sleep.remaining = Math.max(0, (sleep.chapterEnd - livePosition()) / settings.rate);
     }
     setVolume(1);
+    lastLockMinute = null;
     toast(sleep.mode === "duration" ? `Sleep timer +${minutesLabel(sleep.original)}` : "Playing to the end of the next chapter");
     renderSleep();
   }
@@ -1414,6 +1469,7 @@
     $("sleep-extend").addEventListener("click", () => extendSleep());
     $("sleep-off").addEventListener("click", () => {
       stopSleep();
+      clearSleepRestart();
       toast("Sleep timer off");
     });
     $("custom-minus").addEventListener("click", () => {
@@ -1492,6 +1548,7 @@
     livePosition,
     extendSleep,
     startSleep,
+    get restart() { return settings.sleepRestart; },
   };
 
   start();

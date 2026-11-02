@@ -49,7 +49,13 @@ uploaded anywhere.
 - **＋** in the sleep timer panel adds the timer's original length again (or,
   in end-of-chapter mode, carries on to the end of the next chapter).
 - The countdown only runs while audio is actually playing, and the phone can
-  lock as normal while it counts down.
+  lock as normal while it counts down. The time left shows on the **lock
+  screen**, under the book's title (e.g. "☾ 12 min left").
+- **Still awake when it stops?** Press **play** within 15 minutes (on the lock
+  screen, in Control Center, by tapping your AirPods/headphones, or in the
+  app) and the book carries on with the same timer started again. Pressing
+  play later than that just plays. If you switch the timer off yourself,
+  play won't bring it back.
 
 ## Install on iPhone
 
