@@ -20,9 +20,14 @@ IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
 
 - **Code:** GitHub repo `jaspertwigg/Audiobooks`. First built on branch
   `audiobook-player` (PR #1), served from `main`.
-- **Hosting:** GitHub Pages, deploy from branch `main`, folder `/ (root)`.
-  URL: `https://jaspertwigg.github.io/Audiobooks/`. The user turns Pages on
-  themselves; you can't change repo settings.
+- **Hosting:** GitHub Pages at `https://jaspertwigg.github.io/Audiobooks/`,
+  published by `.github/workflows/deploy.yml` (GitHub Actions, same workflow
+  as Craft & Carry) from the repo root on every push to `main`. Files stay at
+  the root (not in `app/`) because Pages was first set up as "deploy from
+  branch main /", and that keeps working too. Pages settings can only be
+  changed by the user; you can't change them yourself.
+- **Workflow:** the user wants Claude to push changes and get them live
+  directly, not leave pull requests for them to merge.
 - **History:** a native SwiftUI version was written first and replaced. The
   user wants home-screen web apps, not Xcode projects.
 
