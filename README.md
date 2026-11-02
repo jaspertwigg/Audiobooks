@@ -10,6 +10,13 @@ uploaded anywhere.
 
 ## Features
 
+**Getting around**
+- The app opens on a menu with: **Continue listening** (or **Now playing**,
+  with the book and chapter), **Add a book**, **Audiobook library**,
+  **Sleep timer**, **Share the app** and **Settings**.
+- **‹ Menu** at the top of the library goes back to it. The mini player at the
+  bottom opens the full player from anywhere.
+
 **Library**
 - Add audio files from the Files app (iCloud Drive, On My iPhone, Downloads,
   etc.): MP3, M4A, M4B, AAC and WAV.
@@ -76,20 +83,19 @@ pauses and the phone is allowed to lock as normal.
 > icon (or clearing Safari website data) deletes the books too. The original
 > files in the Files app aren't touched, so you can always add them again.
 
-## Turn on GitHub Pages (one-time)
+## Publishing (GitHub Pages)
 
-1. On GitHub, open the **Audiobooks** repository.
-2. Tap **Settings** (top bar; on a phone, use "Request Desktop Website" in
-   Safari if you can't see it).
-3. In the left sidebar, tap **Pages**.
-4. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
-5. Set **Branch** to **main** and the folder to **/ (root)**, then tap
-   **Save**.
-6. Wait a minute or two. The page will show "Your site is live at
-   https://jaspertwigg.github.io/Audiobooks/".
+The site is published by GitHub Actions (`.github/workflows/deploy.yml`) on
+every push to `main`, the same as the other JT apps. One-time setting:
 
-Updates pushed to `main` go live automatically. The app checks for new versions
-every time it opens with signal, so you don't need to reinstall it.
+1. On GitHub, open the **Audiobooks** repository and tap **Settings** (on a
+   phone, use "Request Desktop Website" in Safari if you can't see it).
+2. In the left sidebar, tap **Pages**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+
+The address stays **https://jaspertwigg.github.io/Audiobooks/**. Updates go
+live a minute or two after each push, and the app picks them up the next time
+it opens with signal, so you don't need to reinstall it.
 
 ## Testing locally
 

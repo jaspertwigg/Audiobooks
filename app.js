@@ -365,6 +365,7 @@
       $("import-overlay").hidden = true;
       $("file-input").value = "";
     }
+    if (added) showView("library");
     renderLibrary();
     if (added) toast(added === 1 ? "Book added" : `${added} books added`);
   }
@@ -1069,6 +1070,7 @@
       list.appendChild(li);
     }
     renderStorage();
+    renderHome();
   }
 
   async function renderStorage() {
@@ -1114,6 +1116,95 @@
       return;
     }
     renderLibrary();
+  }
+
+  // ================================================================ Home (landing page)
+
+  function viewFromHash() {
+    return location.hash === "#/library" ? "library" : "home";
+  }
+
+  function showView(name, { fromHash } = {}) {
+    const library = name === "library";
+    $("home").hidden = library;
+    $("library").hidden = !library;
+    $("library-header").hidden = !library;
+    if (!fromHash) {
+      const hash = library ? "#/library" : "#/";
+      if (location.hash !== hash) history.pushState(null, "", hash);
+    }
+    window.scrollTo(0, 0);
+    if (library) renderLibrary();
+    else renderHome();
+  }
+
+  async function shareApp() {
+    const url = location.href.split("#")[0];
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Audiobooks", text: "An audiobook player for your iPhone", url });
+      } catch (e) {}
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url).catch(() => {});
+      toast("Link copied");
+    }
+  }
+
+  function lastBook() {
+    if (current) return current;
+    return books.slice().sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0)).find((b) => b.lastPlayed) || null;
+  }
+
+  function homeOption(icon, title, sub, onClick, subId) {
+    const b = document.createElement("button");
+    b.className = "option";
+    b.innerHTML = `<span class="option-icon"></span><span class="option-text"><span class="option-title"></span><span class="option-sub"></span></span><span class="option-chevron">›</span>`;
+    b.querySelector(".option-icon").textContent = icon;
+    b.querySelector(".option-title").textContent = title;
+    b.querySelector(".option-sub").textContent = sub;
+    if (subId) b.querySelector(".option-sub").id = subId;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function sleepOptionText() {
+    if (sleep.mode !== "off") return `Running · ${clock(sleep.remaining)} left`;
+    return settings.shake ? "Stop playback later · shake to extend" : "Stop playback after a set time";
+  }
+
+  function renderHome() {
+    if ($("home").hidden) return;
+    const box = $("home-options");
+    box.innerHTML = "";
+    const resume = lastBook();
+    if (resume) {
+      const ch = resume === current ? currentChapter() : null;
+      const left = Math.max(bookDuration(resume) - (resume === current ? livePosition() : resume.position || 0), 0);
+      const sub = resume.finished ? `${resume.title} · finished` : `${resume.title} · ${ch ? ch.title : `${short(left)} left`}`;
+      const playing = resume === current && isPlaying();
+      box.appendChild(homeOption(playing ? "🎧" : "▶️", playing ? "Now playing" : "Continue listening", sub, () => {
+        unlockAudio(!current || current.id !== resume.id);
+        openBook(resume, { autoplay: true });
+        openPlayer();
+      }));
+    }
+    box.appendChild(homeOption("➕", "Add a book", "MP3, M4A or M4B from the Files app", () => $("file-input").click()));
+    box.appendChild(homeOption("📚", "Audiobook library",
+      books.length ? `${books.length} book${books.length === 1 ? "" : "s"} · search and sort` : "No books yet",
+      () => showView("library")));
+    if (resume) {
+      box.appendChild(homeOption("🌙", "Sleep timer", sleepOptionText(), () => {
+        if (!current) openBook(resume, { autoplay: false });
+        openPlayer();
+        renderSleep();
+        openSheet("sleep-sheet");
+      }, "home-sleep-sub"));
+    }
+    box.appendChild(homeOption("🔗", "Share the app", "Send the link to someone", shareApp));
+    box.appendChild(homeOption("⚙️", "Settings", "Skip times, rewind, shake to extend", () => {
+      renderSettings();
+      openSheet("settings-sheet");
+    }));
   }
 
   // ================================================================ Rendering: player
@@ -1173,7 +1264,12 @@
     $("mini-play").setAttribute("aria-label", playing ? "Pause" : "Play");
     $("player-cover").classList.toggle("paused", !playing);
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+    if (playing !== lastHomePlaying) {
+      lastHomePlaying = playing;
+      renderHome();
+    }
   }
+  let lastHomePlaying = null;
 
   function renderProgress() {
     if (!current || scrubbing) return;
@@ -1240,6 +1336,8 @@
     $("bedside-time").textContent = t;
     $("sleep-paused-note").hidden = !active || !audio.paused;
     $("mini-sub").dataset.sleep = active ? `☾ ${t}` : "";
+    const homeSleep = $("home-sleep-sub");
+    if (homeSleep) homeSleep.textContent = sleepOptionText();
   }
 
   // ================================================================ Sheets
@@ -1428,22 +1526,8 @@
       renderLibrary();
     });
 
-    $("share-app-btn").addEventListener("click", async () => {
-      const url = location.href.split("#")[0];
-      if (navigator.share) {
-        try {
-          await navigator.share({ title: "Audiobooks", text: "An audiobook player for your iPhone", url });
-        } catch (e) {}
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url).catch(() => {});
-        toast("Link copied");
-      }
-    });
-
-    $("settings-btn").addEventListener("click", () => {
-      renderSettings();
-      openSheet("settings-sheet");
-    });
+    $("home-btn").addEventListener("click", () => showView("home"));
+    window.addEventListener("hashchange", () => showView(viewFromHash(), { fromHash: true }));
 
     // Mini player
     $("mini-open").addEventListener("click", openPlayer);
@@ -1596,7 +1680,7 @@
       toast("Couldn't open your library storage");
       books = [];
     }
-    renderLibrary();
+    showView(viewFromHash(), { fromHash: true });
     const last = settings.currentBookId && books.find((b) => b.id === settings.currentBookId);
     if (last) openBook(last, { autoplay: false });
     renderMini();
