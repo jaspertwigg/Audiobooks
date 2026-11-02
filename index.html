@@ -17,17 +17,26 @@
 </head>
 <body>
 
+<!-- ============================================================ Home (landing page) -->
+<main id="home" class="home">
+  <section class="landing">
+    <img class="landing-logo" src="icons/icon-192.png" alt="" />
+    <h2>Audiobooks</h2>
+    <p class="muted">Your listening library</p>
+  </section>
+  <div id="home-options" class="options"></div>
+</main>
+
 <!-- ============================================================ Library -->
-<header class="app-header">
-  <button id="settings-btn" class="icon-btn" aria-label="Settings">⚙️</button>
+<header id="library-header" class="app-header" hidden>
+  <button id="home-btn" class="icon-btn back-btn" aria-label="Back to menu">‹ Menu</button>
   <h1>Library</h1>
   <div class="header-actions">
-    <button id="share-app-btn" class="icon-btn" aria-label="Share app">📤</button>
     <button id="add-btn" class="icon-btn add-btn" aria-label="Add audiobooks">＋</button>
   </div>
 </header>
 
-<main id="library" class="library">
+<main id="library" class="library" hidden>
   <div id="library-tools" class="library-tools" hidden>
     <input id="search" type="search" placeholder="Search title or author" autocomplete="off" />
     <select id="sort" aria-label="Sort by">

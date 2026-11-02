@@ -10,6 +10,13 @@ uploaded anywhere.
 
 ## Features
 
+**Getting around**
+- The app opens on a menu with: **Continue listening** (or **Now playing**,
+  with the book and chapter), **Add a book**, **Audiobook library**,
+  **Sleep timer**, **Share the app** and **Settings**.
+- **‹ Menu** at the top of the library goes back to it. The mini player at the
+  bottom opens the full player from anywhere.
+
 **Library**
 - Add audio files from the Files app (iCloud Drive, On My iPhone, Downloads,
   etc.): MP3, M4A, M4B, AAC and WAV.

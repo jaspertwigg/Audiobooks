@@ -28,6 +28,11 @@ IndexedDB. It follows the same setup as the user's Footy Stats Counter app.
 
 ## Architecture worth knowing about
 
+- **Views:** a landing menu (`#home`, built by `renderHome()` in the same
+  style as the user's Craft & Carry app: logo, name, stacked option cards) and
+  the library (`#library`, hash `#/library`). The player and sheets overlay
+  both.
+
 - **Storage:** IndexedDB database `audiobooks`, stores `books` (keyPath `id`)
   and `blobs` (audio files and cover thumbnails keyed by random ids).
   Settings live in `localStorage` under `ab-settings`. Deleting the
